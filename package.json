@@ -1,16 +1,15 @@
 {
-  "name": "steamid_crawler",
-  "version": "1.0.0",
-  "description": "Crawls for steamids",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "javier",
-  "license": "ISC",
-  "dependencies": {
-    "aws-sdk": "^2.912.0",
-    "axios": "^0.21.1",
-    "redis": "^3.1.2"
-  }
+    "name": "steamid_crawler",
+    "version": "2.0.0",
+    "description": "Crawls for steamids",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "javier",
+    "license": "ISC",
+    "dependencies": {
+        "aws-sdk": "^2.912.0",
+        "axios": "^0.21.1"
+    }
 }
