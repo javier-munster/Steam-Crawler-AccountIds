@@ -7,7 +7,7 @@ function getLocation(country, state, city) {
     try {
         ret.country = steamCountries[country].name.toString();
     } catch (err) {
-        console.log("Could not get country:", country);
+        // console.log("Could not get country:", country);
 
         if (!!country) {
             ret.country = country.toString();
@@ -17,7 +17,7 @@ function getLocation(country, state, city) {
     try {
         ret.state = steamCountries[country].states[state].name.toString();
     } catch (err) {
-        console.log("Could not get state:", state);
+        // console.log("Could not get state:", state);
 
         if (!!state) {
             ret.state = state.toString();
@@ -27,7 +27,7 @@ function getLocation(country, state, city) {
     try {
         ret.city = steamCountries[country].states[state].cities[city].name.toString();
     } catch (err) {
-        console.log("Could not get city:", city);
+        // console.log("Could not get city:", city);
 
         if (!!city) {
             ret.city = city.toString();

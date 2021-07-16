@@ -123,7 +123,10 @@ async function getSteamIds(startAccountId, batchSize) {
                     return reject(err);
                 }
 
-                console.log("batchWrite data:", data);
+                if (data && Object.keys(data.UnprocessedItems).length !== 0) {
+                    console.log("batchWrite data:", data);
+                }
+
                 return resolve(data);
             });
         })
