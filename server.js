@@ -4,18 +4,13 @@ const AWS = require('aws-sdk');
 
 const steamCountries = require('./utils/steamCountries');
 
-/** @constant {string} */
-const STEAM_API_KEY = process.env.STEAM_API_KEY;
-/** @constant {number} */
-const END_ACCOUNT_ID = process.env.END_ACCOUNT_ID || 1224000000; // Stops crawling at this accountId
-/** @constant {number} */
+const STEAM_API_KEYS = process.env.STEAM_API_KEYS.split(','); // This will be moved to AWS' SSM Parameter Store in a future update
+const END_ACCOUNT_ID = Number(process.env.END_ACCOUNT_ID) || 1224000000; // Stops crawling at this accountId
 const BATCH_SIZE = 100; // Number of steamIds to include in each request. Set by Steam API
-/** @constant {number} */
-const STEAM_REQUEST_TIMEOUT = process.env.STEAM_REQUEST_TIMEOUT || 10000;
-/** @constant {boolean} */
-const IS_LAMBDA_ENVIRONMENT = process.env.IS_LAMBDA_ENVIRONMENT || false;
-/** @constant {number} */
-const REQUESTS_PER_INVOCATION = process.env.REQUESTS_PER_INVOCATION || 2;
+const STEAM_REQUEST_TIMEOUT = Number(process.env.STEAM_REQUEST_TIMEOUT) || 10000;
+const MAX_REQUESTS_PER_KEY = Number(process.env.MAX_REQUESTS_PER_DAY) || 2;
+const LAUNCH_ON_START = process.env.LAUNCH_ON_START == "true" ? true : false; // Allows for re-deployment without relaunching
+let STEAM_API_KEY;
 
 const DocClient = new AWS.DynamoDB.DocumentClient({
     region: "us-east-1",
@@ -114,7 +109,7 @@ async function getSteamIds(startAccountId, batchSize) {
         });
     }
 
-    /** Store into DynamoDB */
+    /** Store SteamIds into DynamoDB */
     const ret = await Promise.all(ddbBatchWrites.map((params) => {
         return new Promise((resolve, reject) => {
             return DocClient.batchWrite(params, (err, data) => {
@@ -238,44 +233,79 @@ function setParameter(parameterName, parameterValue) {
  */
 async function crawlSteamIds(currentAccountId) {
     await getSteamIds(currentAccountId, BATCH_SIZE);
+    await setParameter("currentAccountId", currentAccountId + BATCH_SIZE);
 
-    if (++requestCount < REQUESTS_PER_INVOCATION) {
+    if (++requestCount < MAX_REQUESTS_PER_KEY) {
         return crawlSteamIds(currentAccountId + BATCH_SIZE);
     }
 }
 
 /**
- * Lambda function's entrypoint
- * @param  {object} event
- * @param  {object} context
- * @returns {Promise}
+ * Swaps between our Steam API keys
  */
-exports.handler = async(event, context) => {
-    console.log("Cralwer invoked");
+function swapApiKey() {
+    STEAM_API_KEY = STEAM_API_KEY === STEAM_API_KEYS[0] ? STEAM_API_KEYS[1] : STEAM_API_KEYS[0];
+}
 
-    try {
-        const startAccountId = await getParameter("currentAccountId");
+/**
+ *
+ * @returns {Number} Steam API Key index currently in use
+ */
+function identifyApiKey() {
+    return STEAM_API_KEYS.indexOf(STEAM_API_KEY);
+}
 
-        // Check if crawler has finished
-        if (startAccountId >= END_ACCOUNT_ID) {
-            console.warn("Crawler has reached AccountId limit!");
-            return Promise.reject("done");
-        }
+/**
+ * Resets the crawler for a new start, swaps API keys
+ */
+function reset() {
+    requestCount = 0;
+    swapApiKey();
+}
 
-        // Run crawler
-        await crawlSteamIds(startAccountId);
+async function startCrawler() {
+    const startAccountId = await getParameter("currentAccountId");
+    console.log(`Launching SteamIdCrawler API Key ${identifyApiKey()}: ${startAccountId}`);
 
-        // Store state
-        return setParameter("currentAccountId", startAccountId + ((requestCount + 1) * BATCH_SIZE));
-    } catch (err) {
-        return Promise.reject(err);
-    } finally {
-        // Reset internal Lambda state
-        requestCount = 0;
+    if (startAccountId >= END_ACCOUNT_ID) {
+        console.warn("Crawler has reached AccountId limit!");
+        return Promise.reject("done");
     }
-};
 
-// Run the Lambda function's entry point on a dev execution
-if (!IS_LAMBDA_ENVIRONMENT) {
-    return this.handler();
+    // Run crawler
+    await crawlSteamIds(startAccountId);
+
+    console.log("Finished at currentAccountId:", startAccountId + (requestCount * BATCH_SIZE));
+}
+
+
+function launcher() {
+    reset();
+    console.log(`[${Date.now()}] Launching SteamIdCrawler with API Key ${identifyApiKey()}`);
+    return startCrawler().catch((err) => {
+        console.error(`SteamIdCrawler API Key ${identifyApiKey()} Error:`, err);
+    }).finally(() => {
+        console.log(`[${Date.now()}] Finished SteamIdCrawler Daily Execution for API Key ${identifyApiKey()}, swapping keys`);
+    }).then(() => {
+        reset();
+        const delay = Math.floor(Math.random() /* * 60 */ * 60 * 1000);
+        console.log(`Delaying for ${delay} ms`)
+        return new Promise((resolve, reject) => {
+            return setTimeout(() => {
+                console.log("Delay done");
+                return resolve();
+            }, delay);
+        });
+    }).then(startCrawler).catch((err) => {
+        console.error(`SteamIdCrawler API Key ${identifyApiKey()} Error:`, err);
+    }).finally(() => {
+        console.log(`[${Date.now()}] Finished SteamIdCrawler Daily Execution for API Key ${identifyApiKey()}`);
+    });
+}
+console.log("here0", STEAM_API_KEYS);
+if (LAUNCH_ON_START) {
+    launcher();
+    setInterval(() => {
+        return launcher();
+    }, 24 * 60 * 60 * 1000);
 }
