@@ -302,10 +302,11 @@ function launcher() {
         console.log(`[${Date.now()}] Finished SteamIdCrawler Daily Execution for API Key ${identifyApiKey()}`);
     });
 }
-console.log("here0", STEAM_API_KEYS);
+
 if (LAUNCH_ON_START) {
     launcher();
-    setInterval(() => {
-        return launcher();
-    }, 24 * 60 * 60 * 1000);
 }
+
+setInterval(() => {
+    return launcher();
+}, 24 * 60 * 60 * 1000);
