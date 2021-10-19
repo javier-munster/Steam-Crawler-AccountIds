@@ -6,7 +6,7 @@ Steam country, state and city codes are specific to Steam and are not human read
 
 ## FAQ
 ### What is the purpose of this project?
-This is the first step in a larger project that provides a bunch of video game statistics. Steam does not reveal video game ownership data directly, but some of it is exposed incidentally. A bunch of Steam endpoints require a user's SteamID to work. I want to use these endpoints, so I decided to crawl the Steam API to get all the SteamIds.
+This is the first step in a larger project that provides a bunch of video game statistics. A bunch of Steam endpoints require a user's SteamID to work. I want to use these endpoints, so I created this project to get me all the SteamIds.
 ### Why is there almost no error handling?
 It was a concious decision not to catch errors or rejected promises in the code. Failures are better hangled through the AWS configuration than at the code level. Future crawler invocations will retry the same failed steamId range, ensuring no data loss. Our key in DynamoDB ensures no duplicate items are created. On failure, I am notified through AWS SNS and the error is logged in CloudWatch Logs.
 
